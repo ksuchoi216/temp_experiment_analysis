@@ -185,17 +185,18 @@ def calculate_statistics(df,
                          ratio=0.5464516840547095, without_ratio=False,
                          selected_FSR_list=None,
                          start_point=None, end_point=None):
+
+    print('Selected FSR list: ', selected_FSR_list)
+
     _values = np.stack(df.sensor.values, axis=0)
 
     if start_point is not None and end_point is not None:
-        _values = _values[start_point:end_point]
+        _values = _values[start_point:end_point, :]
 
     print('org values dimension: ', _values.shape)
-    print('org mean: ', np.mean(_values))
 
     if selected_FSR_list is not None:
         _values = np.delete(_values, selected_FSR_list, axis=1)
-        print('selected mean: ', np.mean(_values))
         print('selected_values dimension: ', _values.shape)
 
     # get non-zero mean
@@ -206,6 +207,7 @@ def calculate_statistics(df,
 
     # print(len(__mean_nz))
     # print(df.shape)
+    print('org mean: ', np.mean(__mean_nz))
 
     if start_point is not None and end_point is not None:
         timestamp = df['timestamp'].values[start_point:end_point]
