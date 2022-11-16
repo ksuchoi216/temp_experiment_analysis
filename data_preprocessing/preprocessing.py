@@ -6,7 +6,35 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # import lib.biosignal.signal_process.signalgo as signalgo
-from .lib import signalgo as signalgo
+from .lib_external import signalgo as signalgo
+
+
+def get_data_path(cfg, degree=80, FolderName=None):
+    degrees = [-30, 25, 80]
+
+    if degree not in degrees:
+        return print('Wrong degree!!!')
+
+    if degree < 0:
+        degree_keyword = 'm'+str(-degree)
+    else:
+        degree_keyword = str(degree)
+
+    config_keyword = 'path_21v_'+degree_keyword
+
+    PATH_SOURCE = cfg['PATH'][config_keyword]
+
+    if FolderName is None:
+        PATH_DATA_FSR = PATH_SOURCE
+    else:
+        CURRENT_DATA = os.path.join(PATH_SOURCE, FolderName)
+        PATH_DATA_FSR = f'{CURRENT_DATA}/fsr.csv'
+
+    print(PATH_DATA_FSR)
+
+    return PATH_DATA_FSR
+
+
 sns.set(rc={'figure.figsize': (25, 15),
             'lines.linewidth': 2})
 
@@ -16,34 +44,36 @@ def sliceValues(np_values, upper_bound, lower_bound):
     iszero = np.where(np_mean == 0)
     print(iszero)
     np_values = np.delete(np_values, iszero, axis=1)
-    print('new np_values: ', np_values.shape)
+    # print('new np_values: ', np_values.shape)
 
     np_mean = np.mean(np_values, axis=0)
+    print('FSR mean: ', np_mean)
+    # ascending sort
     np_argsort = np.argsort(np_mean)
-    upper_index = np_argsort[:upper_bound]
-
-    lower_index = np_argsort[-lower_bound:]
+    print('ascending sort FSR: ', np_argsort)
+    upper_index = np_argsort[-upper_bound:]
+    lower_index = np_argsort[:lower_bound]
     delete_index = np.append(upper_index, lower_index)
     print(f'lower_index: {lower_index}, upper_index: {upper_index}')
-    print(f'delete_index: {delete_index}')
+    # print(f'delete_index: {delete_index}')
 
     sliced_values = np.delete(np_values, delete_index, axis=1)
 
     print(f'sliced values: {sliced_values.shape}')
 
+    print(f'sliced values mean: {np.mean(sliced_values)}')
+
     return sliced_values
 
 
-def plotEachFSR(path_source_list, folder_name_list,
-                start_point=0, end_point=2000,
+def plotEachFSR(path_source_list,
+                folder_name_list,
+                data_range_list=None,
                 upper_bound=0, lower_bound=2,
                 isPlot=False):
 
     for path_source in path_source_list:
         for i, folder_name in enumerate(folder_name_list):
-            print(f'i: {i}')
-            if i >= 1:
-                break
             current_data = os.path.join(path_source, folder_name)
             path_data_fsr = f'{current_data}/fsr.csv'
             print(path_data_fsr)
@@ -57,7 +87,11 @@ def plotEachFSR(path_source_list, folder_name_list,
                 lambda x: np.array(x.split(' '), dtype=float))
 
             _values = np.stack(df_fsr.sensor.values, axis=0)
-            _values = _values[start_point:end_point, :]
+
+            if data_range_list is not None:
+                data_start_point, data_end_point = data_range_list[i]
+                _values = _values[data_start_point:data_end_point, :]
+
             print(f'values: {_values.shape}')
 
             sliced_values = sliceValues(_values, upper_bound, lower_bound)
@@ -133,13 +167,36 @@ def convert_df(df_fsr, df_key):
     return df
 
 
+def sliceValuesWithoutSelectedFSR(np_values, selected_FSR_list: list):
+    np_mean = np.mean(np_values, axis=0)
+    # iszero = np.where(np_mean == 0)
+    # np_values = np.delete(np_values, iszero, axis=1)
+
+    sliced_values = np.delete(np_values, selected_FSR_list, axis=1)
+
+    print(f'sliced values: {sliced_values.shape}')
+
+    print(f'sliced values mean: {np.mean(sliced_values)}')
+
+    return sliced_values
+
+
 def calculate_statistics(df,
                          ratio=0.5464516840547095, without_ratio=False,
+                         selected_FSR_list=None,
                          start_point=None, end_point=None):
     _values = np.stack(df.sensor.values, axis=0)
 
     if start_point is not None and end_point is not None:
         _values = _values[start_point:end_point]
+
+    print('org values dimension: ', _values.shape)
+    print('org mean: ', np.mean(_values))
+
+    if selected_FSR_list is not None:
+        _values = np.delete(_values, selected_FSR_list, axis=1)
+        print('selected mean: ', np.mean(_values))
+        print('selected_values dimension: ', _values.shape)
 
     # get non-zero mean
     __mean_nz = np.apply_along_axis(lambda x: np.mean(x[x != 0]), 1, _values)
@@ -181,6 +238,8 @@ def calculate_statistics(df,
         __mean_rt = __mean_nz
     else:
         __mean_rt = __mean_nz * ratio  # RATIO
+
+    print(f'Compensation mean: {np.mean(__mean_rt)}')
     __mean_rt_sub_ema = signalgo.subtract_ema(__mean_rt, 0.01)
     __mean_rt_ema = signalgo.ema(__mean_rt_sub_ema, 0.05)
 
