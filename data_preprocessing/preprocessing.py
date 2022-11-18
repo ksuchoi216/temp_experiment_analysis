@@ -80,12 +80,13 @@ def plotEachFSR(path_source_list,
                 data_range_list=None,
                 upper_bound=None, lower_bound=None,
                 selected_FSR=None,
-                isPlot=False):
+                info=True,
+                isPlot=False,
+                offset=1000
+                ):
 
     for path_source in path_source_list:
         for i, folder_name in enumerate(folder_name_list):
-            if i >= 1:
-                break
             current_data = os.path.join(path_source, folder_name)
             path_data_fsr = f'{current_data}/fsr.csv'
             print(path_data_fsr)
@@ -99,17 +100,39 @@ def plotEachFSR(path_source_list,
                 lambda x: np.array(x.split(' '), dtype=float))
 
             _values = np.stack(df_fsr.sensor.values, axis=0)
+            print(f'values: {_values.shape}')
+            print(f'selected_FSR: {selected_FSR}')
 
             if data_range_list is not None:
                 data_start_point, data_end_point = data_range_list[i]
                 _values = _values[data_start_point:data_end_point, :]
 
-            print(f'values: {_values.shape}')
+            if info:
+                print('='*70)
+                np_mean = np.mean(_values, axis=0)
+                print('np mean:\n ', np.sort(np_mean))
+                np_argsort = np.argsort(np_mean)
+                print('ascending sort FSR:\n', np_argsort)
 
-            np_mean = np.mean(_values, axis=0)
-            print('np mean:\n ', np.sort(np_mean))
-            np_argsort = np.argsort(np_mean)
-            print('ascending sort FSR:\n', np_argsort)
+                print('='*70)
+                np_min = np.min(_values, axis=0)
+                print('np min:\n ', np.sort(np_min))
+                np_argsort = np.argsort(np_min)
+                print('ascending sort FSR:\n', np_argsort)
+
+                print('='*70)
+                np_max = np.max(_values, axis=0)
+                print('np max:\n ', np.sort(np_max))
+                np_argsort = np.argsort(np_max)
+                print('ascending sort FSR:\n', np_argsort)
+
+                print('='*70)
+                np_std = np.std(_values, axis=0)
+                print('np std:\n ', np.sort(np_std))
+                np_argsort = np.argsort(np_std)
+                print('ascending sort FSR:\n', np_argsort)
+
+                print('='*70)
 
             if upper_bound is not None and lower_bound is not None:
                 sliced_values = sliceValues(_values, upper_bound, lower_bound)
@@ -117,6 +140,9 @@ def plotEachFSR(path_source_list,
                 sliced_values = sliceValuesWithSelectedFSR(
                     _values, selected_FSR
                 )
+
+            if offset is not None:
+                sliced_values = sliced_values - offset
 
             if isPlot:
                 sns.lineplot(data=_values, palette='bright').set(
@@ -207,7 +233,8 @@ def calculate_statistics(df,
                          ratio=0.5464516840547095, without_ratio=False,
                          deleted_FSR_list=None,
                          selected_FSR_list=None,
-                         start_point=None, end_point=None):
+                         start_point=None, end_point=None,
+                         offset=0):
 
     _values = np.stack(df.sensor.values, axis=0)
 
@@ -225,7 +252,6 @@ def calculate_statistics(df,
         _values = _values[:, selected_FSR_list]
         print('selected_values dimension: ', _values.shape)
 
-    time_mean = np.mean(_values, axis=1)
     # print('np_mean shape: ', np_mean.shape)
 
     # get non-zero mean
@@ -236,6 +262,8 @@ def calculate_statistics(df,
 
     # print(len(__mean_nz))
     # print(df.shape)
+
+    time_mean = np.mean(_values, axis=1)
 
     sensor_mean = np.mean(_values, axis=0)
     print('sensor_mean shape: ', sensor_mean.shape)
@@ -249,12 +277,17 @@ def calculate_statistics(df,
     else:
         timestamp = df['timestamp'].values
 
+    # time_min = np.min(_values, axis=1)
+    # # sensor_min = np.min(time_min)
+    # time_max = np.max(_values, axis=1)
+    # time_std = np.std(_values, axis=1)
+
     df = pd.DataFrame({
         'timestamp': timestamp,
         'mean': time_mean,
-        # 'min': __min_nz,
-        # 'max': __max_nz,
-        # 'std': __std_nz
+        # 'min': time_min,
+        # 'max': time_max,
+        # 'std': time_std
     })
 
     __mean_sub_ema = signalgo.subtract_ema(time_mean, 0.01)
@@ -271,9 +304,9 @@ def calculate_statistics(df,
     # plt.title('(filtered by ema)')
 
     if without_ratio:
-        __mean_rt = time_mean
+        __mean_rt = time_mean - offset
     else:
-        __mean_rt = time_mean * ratio  # RATIO
+        __mean_rt = time_mean * ratio - offset  # RATIO
 
     compensated_mean = np.mean(__mean_rt)
 
