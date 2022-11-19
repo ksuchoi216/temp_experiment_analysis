@@ -290,8 +290,8 @@ def calculate_statistics(df,
         # 'std': time_std
     })
 
-    __mean_sub_ema = signalgo.subtract_ema(time_mean, 0.01)
-    __mean_ema = signalgo.ema(__mean_sub_ema, 0.05)
+    # __mean_sub_ema = signalgo.subtract_ema(time_mean, 0.01)
+    # __mean_ema = signalgo.ema(__mean_sub_ema, 0.05)
     # peaks = signalgo.get_peaks(__mean_ema)
 
     plt.figure(figsize=(16, 14))
@@ -308,9 +308,10 @@ def calculate_statistics(df,
     else:
         __mean_rt = time_mean * ratio - offset  # RATIO
 
+    df['c_mean'] = __mean_rt
     compensated_mean = np.mean(__mean_rt)
 
-    print(f'Compensation mean: {compensated_mean}')
+    print(f'c_mean: {compensated_mean}')
     __mean_rt_sub_ema = signalgo.subtract_ema(__mean_rt, 0.01)
     __mean_rt_ema = signalgo.ema(__mean_rt_sub_ema, 0.05)
 
@@ -323,4 +324,4 @@ def calculate_statistics(df,
         # plt.title('(filtered by ema)')
         plt.show()
 
-    return compensated_mean
+    return compensated_mean, df
